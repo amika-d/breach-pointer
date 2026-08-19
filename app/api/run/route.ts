@@ -2,6 +2,7 @@ import { NextRequest } from "next/server"
 import { buildRunnerMessages } from "@/app/lib/prompts"
 import { MODELS } from "@/app/lib/config"
 
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {

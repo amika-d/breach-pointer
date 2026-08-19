@@ -3,7 +3,7 @@ import { buildInlineSuggestionsPrompt, buildImproverPrompt } from "@/app/lib/pro
 import { Role } from "@/app/lib/types"
 import { MODELS } from "@/app/lib/config"
 
-export const runtime = "edge"
+export const maxDuration = 60 // Allow up to 60 seconds (Vercel Hobby plan maximum)
 
 export async function POST(req: NextRequest) {
   try {

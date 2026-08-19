@@ -4,6 +4,7 @@ import { Role } from "@/app/lib/types"
 import { MODELS } from "@/app/lib/config"
 
 
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
