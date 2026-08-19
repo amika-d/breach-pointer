@@ -374,7 +374,7 @@ export default function EvalPage() {
                                     if (lines[lineIndex] && lines[lineIndex].trim() === relevantSuggestion.original_line.trim()) {
                                       lines[lineIndex] = relevantSuggestion.suggested_line;
                                     } else {
-                                      setFixedPrompt(current => current.replace(relevantSuggestion.original_line, relevantSuggestion.suggested_line));
+                                      setFixedPrompt(fixedPrompt.replace(relevantSuggestion.original_line, relevantSuggestion.suggested_line));
                                       setAppliedFixes(prev => new Set(prev).add(relevantSuggestionIdx));
                                       return;
                                     }
