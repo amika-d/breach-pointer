@@ -11,6 +11,7 @@ export type TestResult = {
   pass?: boolean;
   reason?: string;
   severity_if_fail?: string;
+  failure_type?: string;
 };
 
 interface Props {

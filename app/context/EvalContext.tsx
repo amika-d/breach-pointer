@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { TestResult } from "@/components/TestResults";
-import { InlineSuggestion } from "@/app/lib/types";
+import { AttackCategory, InlineSuggestion } from "@/app/lib/types";
 
 export type ScoreData = {
   score: number;
@@ -9,6 +9,17 @@ export type ScoreData = {
   failed: number;
   summary: string;
   fixes: string[];
+};
+
+export type EvalRun = {
+  prompt: string;
+  score: number;
+  results: TestResult[];
+  fixes: string[];
+  summary: string;
+  category_scores: Record<AttackCategory, { pass: number; total: number }>;
+  acceptedSuggestions: string[];
+  timestamp: number;
 };
 
 interface EvalContextType {
@@ -29,8 +40,13 @@ interface EvalContextType {
   previousScoreData: ScoreData | null;
   setPreviousScoreData: (data: ScoreData | null) => void;
 
+  evalHistory: EvalRun[];
+  pushEvalRun: (run: EvalRun) => void;
+
   suggestions: InlineSuggestion[];
   setSuggestions: (s: InlineSuggestion[]) => void;
+  appliedFixes: Set<number>;
+  setAppliedFixes: React.Dispatch<React.SetStateAction<Set<number>>>;
   fixedPrompt: string;
   setFixedPrompt: (p: string) => void;
 
@@ -52,8 +68,13 @@ export function EvalProvider({ children }: { children: ReactNode }) {
   const [previousScoreData, setPreviousScoreData] = useState<ScoreData | null>(null);
 
   const [suggestions, setSuggestions] = useState<InlineSuggestion[]>([]);
+  const [appliedFixes, setAppliedFixes] = useState<Set<number>>(new Set());
   const [fixedPrompt, setFixedPrompt] = useState("");
+  const [evalHistory, setEvalHistory] = useState<EvalRun[]>([]);
   const [isHydrated, setIsHydrated] = useState(false);
+
+  const pushEvalRun = (run: EvalRun) =>
+    setEvalHistory((prev) => [...prev, run]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("stress_tester_eval");
@@ -68,7 +89,9 @@ export function EvalProvider({ children }: { children: ReactNode }) {
         if (parsed.scoreData) setScoreData(parsed.scoreData);
         if (parsed.previousScoreData) setPreviousScoreData(parsed.previousScoreData);
         if (parsed.suggestions) setSuggestions(parsed.suggestions);
+        if (parsed.appliedFixes) setAppliedFixes(new Set(parsed.appliedFixes));
         if (parsed.fixedPrompt) setFixedPrompt(parsed.fixedPrompt);
+        if (parsed.evalHistory) setEvalHistory(parsed.evalHistory);
       } catch (e) {
         console.error("Failed to parse session storage", e);
       }
@@ -81,14 +104,16 @@ export function EvalProvider({ children }: { children: ReactNode }) {
     const dataToSave = {
       selectedRole, prompt, testCount,
       allTests, initialTests, scoreData,
-      previousScoreData, suggestions, fixedPrompt
+      previousScoreData, suggestions, 
+      appliedFixes: Array.from(appliedFixes), 
+      fixedPrompt, evalHistory
     };
     sessionStorage.setItem("stress_tester_eval", JSON.stringify(dataToSave));
   }, [
     isHydrated,
     selectedRole, prompt, testCount,
     allTests, initialTests, scoreData,
-    previousScoreData, suggestions, fixedPrompt
+    previousScoreData, suggestions, appliedFixes, fixedPrompt, evalHistory
   ]);
 
   const resetEval = () => {
@@ -100,7 +125,9 @@ export function EvalProvider({ children }: { children: ReactNode }) {
     setScoreData(null);
     setPreviousScoreData(null);
     setSuggestions([]);
+    setAppliedFixes(new Set());
     setFixedPrompt("");
+    setEvalHistory([]);
     sessionStorage.removeItem("stress_tester_eval");
   };
 
@@ -114,7 +141,9 @@ export function EvalProvider({ children }: { children: ReactNode }) {
       scoreData, setScoreData,
       previousScoreData, setPreviousScoreData,
       suggestions, setSuggestions,
+      appliedFixes, setAppliedFixes,
       fixedPrompt, setFixedPrompt,
+      evalHistory, pushEvalRun,
       resetEval,
       isHydrated
     }}>
