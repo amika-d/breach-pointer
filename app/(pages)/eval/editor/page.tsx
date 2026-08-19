@@ -104,7 +104,7 @@ export default function EditorPage() {
       <div className="pointer-events-none absolute left-1/4 top-20 size-56 rounded-full bg-primary/10 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 right-1/4 size-72 rounded-full bg-accent/10 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-5 py-5 sm:px-8 lg:px-10">
+      <div className="relative mx-auto flex min-h-screen max-w-[1800px] flex-col px-3 py-5">
         {/* Sub-header */}
         <header className="flex items-center justify-between border-b border-white/10 pb-5">
           <div className="flex items-center gap-3">

@@ -52,6 +52,39 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
   const gutterRef = React.useRef<HTMLDivElement>(null);
   const preRef = React.useRef<HTMLPreElement>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Resizable pane state: leftPct is the percentage of the resizable area (total minus findings)
+  const [leftPct, setLeftPct] = React.useState(38);
+  const isDragging = React.useRef(false);
+
+  const startDrag = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const findingsWidth = 260 + 16; // 260px + gap
+      const availableWidth = rect.width - findingsWidth;
+      const relX = ev.clientX - rect.left;
+      const pct = Math.min(65, Math.max(20, (relX / availableWidth) * 100));
+      setLeftPct(pct);
+    };
+
+    const onUp = () => {
+      isDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, []);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -159,11 +192,13 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
         </div>
       </div>
 
-      {/* Triple Pane */}
-      <div className="grid flex-1 gap-5 lg:grid-cols-[1fr_1fr_300px]">
+      {/* Resizable Pane Layout */}
+      <div ref={containerRef} className="flex flex-1 items-stretch gap-4">
 
         {/* Left: Original Prompt */}
-        <section className="flex min-h-[560px] flex-col rounded-3xl border border-white/15 bg-white/[0.07] p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl sm:p-7">
+        <section
+          style={{ width: `${leftPct}%` }}
+          className="flex min-h-[560px] shrink-0 flex-col rounded-2xl border border-white/15 bg-white/[0.07] p-4 shadow-2xl shadow-black/20 backdrop-blur-2xl">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-muted-foreground">
@@ -193,8 +228,8 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
                 ))}
               </div>
               {/* Content */}
-              <div className="relative min-w-0 flex-1">
-                <pre className="m-0 overflow-hidden whitespace-pre-wrap break-words p-5 font-mono text-[12px] leading-7">
+              <div className="relative min-w-0 flex-1 overflow-x-auto">
+                <pre className="m-0 min-w-max overflow-hidden whitespace-pre p-5 font-mono text-[12px] leading-7">
                   {originalLines.map((line, index) => (
                     <div key={`${index}-${line}`}>
                       {highlightLine(line || " ")}
@@ -216,8 +251,19 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
           </div>
         </section>
 
+        {/* Drag Handle */}
+        <div
+          onMouseDown={startDrag}
+          className="flex w-2 shrink-0 cursor-col-resize flex-col items-center justify-center gap-1 rounded-full opacity-30 hover:opacity-80 transition-opacity"
+          title="Drag to resize"
+        >
+          <div className="h-16 w-[3px] rounded-full bg-white/40" />
+        </div>
+
         {/* Right: Working Draft */}
-        <section className="flex min-h-[560px] flex-col rounded-3xl border border-white/20 bg-white/[0.1] p-5 shadow-2xl shadow-primary/10 backdrop-blur-2xl sm:p-7">
+        <section
+          style={{ width: `${100 - leftPct}%` }}
+          className="flex min-h-[560px] flex-col rounded-2xl border border-white/20 bg-white/[0.1] p-4 shadow-2xl shadow-primary/10 backdrop-blur-2xl">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -254,8 +300,8 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
             </div>
 
             {/* Highlight + Textarea Layer */}
-            <div className="relative min-w-0 flex-1">
-              <pre ref={preRef} aria-hidden="true" className="pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre-wrap break-words p-5 font-mono text-[12px] leading-7">
+            <div className="relative min-w-0 flex-1 overflow-x-auto">
+              <pre ref={preRef} aria-hidden="true" className="pointer-events-none absolute inset-0 m-0 min-w-max overflow-hidden whitespace-pre p-5 font-mono text-[12px] leading-7">
                 {lines.map((line, index) => (
                   <div
                     key={`${index}-${line}`}
@@ -284,7 +330,7 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
                 }}
                 onClick={(e) => setActiveLine(e.currentTarget.value.slice(0, e.currentTarget.selectionStart).split("\n").length)}
                 onKeyUp={(e) => setActiveLine(e.currentTarget.value.slice(0, e.currentTarget.selectionStart).split("\n").length)}
-                className="relative z-10 block min-h-[420px] w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent p-5 font-mono text-[12px] leading-7 text-transparent caret-cyan-200 outline-none selection:bg-cyan-300/20"
+                className="relative z-10 block min-h-[420px] w-full min-w-max resize-none overflow-hidden whitespace-pre bg-transparent p-5 font-mono text-[12px] leading-7 text-transparent caret-cyan-200 outline-none selection:bg-cyan-300/20"
               />
             </div>
 
@@ -310,7 +356,7 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
         </section>
 
         {/* Rightmost: AI Findings */}
-        <section className="flex flex-col rounded-3xl border border-white/15 bg-white/[0.05] p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl sm:p-7">
+        <section className="flex w-[260px] shrink-0 flex-col rounded-2xl border border-white/15 bg-white/[0.05] p-4 shadow-2xl shadow-black/20 backdrop-blur-2xl">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
