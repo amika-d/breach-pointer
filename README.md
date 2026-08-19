@@ -6,6 +6,7 @@
   <img src="public/screenshot-1.png" width="49%" alt="Eval Dashboard" />
   <img src="public/screenshot-2.png" width="49%" alt="Refine Workspace" />
 </p>
+
 ## Features
 
 - **Automated Adversarial Testing:** Automatically generates highly targeted attacks against your prompt based on specific categories (Jailbreaks, Social Engineering, Tool Misuse, PII Extraction, Authority Overrides).
