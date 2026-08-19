@@ -5,7 +5,7 @@ import { useEvalContext } from "@/app/context/EvalContext";
 import PromptEditor from "@/components/PromptEditor";
 import { TestResult } from "@/components/TestResults";
 import Link from "next/link";
-import { ArrowLeft, Command, MoreHorizontal, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Clipboard, Command, MoreHorizontal, Sparkles } from "lucide-react";
 
 export default function EditorPage() {
   const router = useRouter();
@@ -17,11 +17,13 @@ export default function EditorPage() {
     suggestions, setSuggestions,
     fixedPrompt, setFixedPrompt,
     setAllTests,
+    pushEvalRun,
     isHydrated,
   } = useEvalContext();
 
   const [isRetesting, setIsRetesting] = useState(false);
   const [error, setError] = useState("");
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -87,6 +89,17 @@ export default function EditorPage() {
       setAllTests(merged);
       setScoreData(newScoreData);
       setIsRetesting(false);
+      // Record retest run for the report
+      pushEvalRun({
+        prompt: fixedPrompt,
+        score,
+        results: merged,
+        fixes: judgeData.fixes ?? [],
+        summary: judgeData.overall_summary ?? "",
+        category_scores: judgeData.category_scores ?? {},
+        acceptedSuggestions: [],
+        timestamp: Date.now(),
+      });
       router.push("/eval");
     } catch (err: any) {
       setError(err.message ?? "Something went wrong during retest.");
@@ -121,6 +134,18 @@ export default function EditorPage() {
               ← Back to evals
             </Link>
             <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1.5 backdrop-blur-md sm:inline">Autosave on</span>
+            <button
+              aria-label="Copy updated prompt"
+              onClick={async () => {
+                await navigator.clipboard.writeText(fixedPrompt || prompt);
+                setCopiedPrompt(true);
+                setTimeout(() => setCopiedPrompt(false), 2000);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-md transition hover:bg-white/10 hover:text-white"
+            >
+              {copiedPrompt ? <Check className="size-3 text-emerald-400" /> : <Clipboard className="size-3" />}
+              {copiedPrompt ? "Copied!" : "Copy prompt"}
+            </button>
             <button aria-label="More options" className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition-colors hover:bg-white/10">
               <MoreHorizontal className="size-4" />
             </button>
@@ -161,7 +186,8 @@ export default function EditorPage() {
               </div>
             ) : (
               <PromptEditor
-                originalPrompt={fixedPrompt || prompt}
+                originalPrompt={prompt}
+                initialDraft={fixedPrompt || prompt}
                 suggestions={suggestions}
                 onPromptChange={setFixedPrompt}
                 onRetest={runRetest}

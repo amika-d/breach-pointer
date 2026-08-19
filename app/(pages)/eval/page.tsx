@@ -7,11 +7,13 @@ import ScoreRing from "@/components/ScoreRing";
 import TestResults, { TestResult } from "@/components/TestResults";
 import PipelineGate from "@/components/PipelineGate";
 import ScoreDelta from "@/components/ScoreDelta";
+import { generateReport } from "@/app/lib/report";
 import {
   ArrowUpRight,
   ChevronRight,
   CircleAlert,
   CircleCheck,
+  Download,
   FlaskConical,
   Gauge,
   ShieldAlert,
@@ -29,8 +31,10 @@ export default function EvalPage() {
     initialTests, setInitialTests,
     scoreData, setScoreData,
     previousScoreData,
-    setSuggestions,
+    suggestions, setSuggestions,
+    appliedFixes, setAppliedFixes,
     fixedPrompt, setFixedPrompt,
+    evalHistory, pushEvalRun,
     isHydrated,
   } = useEvalContext();
 
@@ -39,6 +43,7 @@ export default function EvalPage() {
   const [error, setError] = useState("");
   const [hasStarted, setHasStarted] = useState(false);
   const [selectedTest, setSelectedTest] = useState<TestResult | null>(null);
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -106,6 +111,7 @@ export default function EvalPage() {
 
       // Fire suggestions in background if there are failures
       if (failed > 0) {
+        setIsSuggesting(true);
         fetch("/api/suggest", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -115,7 +121,13 @@ export default function EvalPage() {
             failedTests: merged.filter((t) => !t.pass),
             fixes: judgeData.fixes ?? []
           }),
-        }).then(r => r.json()).then(d => { if (d.suggestions) setSuggestions(d.suggestions); }).catch(console.error);
+        }).then(r => r.json()).then(d => { 
+          if (d.suggestions) setSuggestions(d.suggestions); 
+          setIsSuggesting(false);
+        }).catch(err => {
+          console.error(err);
+          setIsSuggesting(false);
+        });
       } else {
         setSuggestions([]);
       }
@@ -127,6 +139,17 @@ export default function EvalPage() {
         setScoreData(newScoreData);
         setSelectedTest(merged.find(t => !t.pass) ?? merged[0]);
         setRunning(false);
+        // Record this run in history for the report
+        pushEvalRun({
+          prompt,
+          score,
+          results: merged,
+          fixes: judgeData.fixes ?? [],
+          summary: judgeData.overall_summary ?? "",
+          category_scores: judgeData.category_scores ?? {},
+          acceptedSuggestions: [],
+          timestamp: Date.now(),
+        });
       }, 350);
     } catch (err: any) {
       setError(err.message ?? "Something went wrong.");
@@ -319,17 +342,64 @@ export default function EvalPage() {
                       )}
                     </div>
 
-                    {!selectedTest.pass && (
-                      <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-5">
-                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-3">
-                          <Sparkles className="size-3.5" /> Suggested editor change
+                    {!selectedTest.pass && (() => {
+                      const relevantSuggestionIdx = suggestions.findIndex(s => s.test_category === selectedTest.category);
+                      const relevantSuggestion = relevantSuggestionIdx !== -1 ? suggestions[relevantSuggestionIdx] : null;
+                      const isApplied = relevantSuggestionIdx !== -1 && appliedFixes.has(relevantSuggestionIdx);
+
+                      return (
+                        <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-3">
+                            <Sparkles className="size-3.5" /> Suggested editor change
+                          </div>
+                          <p className="text-sm leading-6 text-white/80">{selectedTest.reason}</p>
+                          
+                          <div className="mt-4 flex items-center justify-between">
+                            <Link href="/eval/editor" className="inline-flex items-center gap-1.5 text-xs font-medium text-white hover:text-blue-300 transition-colors no-underline">
+                              Open in prompt editor <ArrowUpRight className="size-3" />
+                            </Link>
+
+                            {relevantSuggestion && (
+                              <button
+                                onClick={() => {
+                                  if (isApplied) return;
+                                  const lines = fixedPrompt.split("\n");
+                                  const lineIndex = relevantSuggestion.line_number - 1;
+                                  
+                                  if (relevantSuggestion.action === "remove") {
+                                    lines.splice(lineIndex, 1);
+                                  } else if (relevantSuggestion.action === "add") {
+                                    lines.splice(lineIndex + 1, 0, relevantSuggestion.suggested_line);
+                                  } else {
+                                    if (lines[lineIndex] && lines[lineIndex].trim() === relevantSuggestion.original_line.trim()) {
+                                      lines[lineIndex] = relevantSuggestion.suggested_line;
+                                    } else {
+                                      setFixedPrompt(current => current.replace(relevantSuggestion.original_line, relevantSuggestion.suggested_line));
+                                      setAppliedFixes(prev => new Set(prev).add(relevantSuggestionIdx));
+                                      return;
+                                    }
+                                  }
+                                  setFixedPrompt(lines.join("\n"));
+                                  setAppliedFixes(prev => new Set(prev).add(relevantSuggestionIdx));
+                                }}
+                                disabled={isApplied}
+                                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                                  isApplied 
+                                    ? "bg-emerald-500/10 text-emerald-300 cursor-default" 
+                                    : "bg-white/10 text-white hover:bg-white/20"
+                                }`}
+                              >
+                                {isApplied ? (
+                                  <><CircleCheck className="size-3" /> Applied</>
+                                ) : (
+                                  "Apply fix inline"
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm leading-6 text-white/80">{selectedTest.reason}</p>
-                        <Link href="/eval/editor" className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-white hover:text-blue-300 transition-colors no-underline">
-                          Open in prompt editor <ArrowUpRight className="size-3" />
-                        </Link>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </section>
                 );
               })()}
@@ -356,12 +426,29 @@ export default function EvalPage() {
                 >
                   ← Start over
                 </Link>
-                <Link
-                  href="/eval/editor"
-                  className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-white/10 transition hover:bg-violet-100 no-underline"
-                >
-                  Fix your workflow <ArrowUpRight className="size-4" />
-                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => generateReport(evalHistory, selectedRole)}
+                    disabled={evalHistory.length === 0}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm text-muted-foreground shadow-lg transition hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Download className="size-4" />
+                    Export report
+                  </button>
+                  <Link
+                    href={isSuggesting ? "#" : "/eval/editor"}
+                    onClick={(e) => isSuggesting && e.preventDefault()}
+                    className={`inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-white/10 transition no-underline ${
+                      isSuggesting ? "opacity-70 cursor-wait" : "hover:bg-violet-100"
+                    }`}
+                  >
+                    {isSuggesting ? (
+                      <><span className="spinner" /> Generating fixes…</>
+                    ) : (
+                      <>Fix your workflow <ArrowUpRight className="size-4" /></>
+                    )}
+                  </Link>
+                </div>
               </div>
             </>
           )}

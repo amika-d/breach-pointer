@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Breach Pointer (v1)
+
+**Red-team your guardrails.** Breach Pointer is an adversarial stress-testing platform designed to evaluate, break, and fix long-form AI workflow prompts.
+
+![Breach Pointer Demo](/public/demo.png) *(Note: Add a screenshot here)*
+
+## Features
+
+- **Automated Adversarial Testing:** Automatically generates highly targeted attacks against your prompt based on specific categories (Jailbreaks, Social Engineering, Tool Misuse, PII Extraction, Authority Overrides).
+- **LLM-as-a-Judge Scoring:** Evaluates the AI's response to adversarial inputs, scores the resilience of your prompt, and categorizes failures by severity.
+- **Pipeline Gate:** Provides a clear pass/fail score to determine if a workflow is safe to ship to production.
+- **Inline Fix Editor:** When a prompt fails, Breach Pointer generates specific, line-by-line code suggestions. Use the dual-pane code editor to preview fixes and apply them directly to your draft.
+
+## Tech Stack
+
+- **Framework:** [Next.js](https://nextjs.org/) (App Router) v16.3
+- **UI & Styling:** React 19, [Tailwind CSS v4](https://tailwindcss.com/), `lucide-react`
+- **AI Integration:** OpenRouter API (`@openrouter/ai-sdk-provider`)
 
 ## Getting Started
 
-First, run the development server:
+1. **Clone the repository and install dependencies**
+   We recommend using `pnpm` as the package manager.
+   ```bash
+   pnpm install
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. **Configure Environment Variables**
+   Create a `.env.local` file in the root directory. You will need an OpenRouter API key.
+   ```env
+   OPENROUTER_API_KEY=your_openrouter_api_key_here
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. **Run the Development Server**
+   ```bash
+   pnpm dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How it Works (The V1 Loop)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Configure:** Enter the target role (e.g., "Sales Agent") and your current system prompt/workflow instructions.
+2. **Attack:** The system generates adversarial payloads explicitly designed to break the rules you defined.
+3. **Judge:** The models process the attacks and are evaluated by a judging agent on a Pass/Fail rubric.
+4. **Fix:** Navigate to the Refine Workspace editor. Review the generated inline suggestions (add, replace, or remove lines) and apply them to build a stronger prompt.
+5. **Retest:** Run the exact same attacks against your patched prompt to verify your new guardrails hold.
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Private / Confidential.
