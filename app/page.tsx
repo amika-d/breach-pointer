@@ -60,7 +60,7 @@ export default function Page() {
         <section id="top" className="mx-auto max-w-[1280px] px-6 pb-24 pt-36 lg:px-10 lg:pb-36 lg:pt-48">
           <div className="grid gap-14 lg:grid-cols-12 lg:items-end">
             <div className="reveal lg:col-span-8">
-              <p className="eyebrow mb-7 text-violet-400">Powered by Claude · Official TAI Labs Tool</p>
+
               <h1 className="max-w-4xl text-balance text-6xl font-semibold leading-[0.96] tracking-[-0.05em] sm:text-7xl lg:text-[88px]">
                 Your workflow passed your tests.<br />
                 <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-cyan-300 bg-clip-text text-transparent">It won't pass your users'.</span>
@@ -97,7 +97,7 @@ export default function Page() {
             <div className="lg:col-span-5">
               <p className="eyebrow mb-4 text-violet-400">Why this exists</p>
               <h2 className="max-w-lg text-4xl font-semibold tracking-[-0.055em] sm:text-5xl text-white">
-                TAI teams build well.<br/>They don't eval.
+                TAI teams build well.<br />They don't eval.
               </h2>
               <p className="mt-6 max-w-md leading-7 text-white/60">
                 TAI's quarterly reports show output evaluation is the weakest dimension across client teams — scoring 63/100 on average. Workflows move to Validated with no systematic check.
@@ -195,10 +195,11 @@ export default function Page() {
         <section className="reveal mx-6 mb-24 rounded-3xl border border-violet-500/20 bg-violet-500/10 px-6 py-20 text-center sm:px-12 lg:mx-auto lg:max-w-[1280px]">
           <Shield className="mx-auto mb-8 size-10 text-violet-400 opacity-80" />
           <blockquote className="mx-auto max-w-4xl text-2xl font-medium leading-[1.4] tracking-tight text-white sm:text-4xl">
-            "Require a documented evaluation step on every Testing → Validated promotion."
+            "A workflow that hasn't been attacked
+            hasn't been tested."
           </blockquote>
           <p className="mt-8 text-sm font-medium tracking-wide text-violet-300/80 uppercase">
-            TAI Labs QBR Report · August 2026
+
           </p>
         </section>
 
