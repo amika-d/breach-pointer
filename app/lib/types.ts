@@ -80,5 +80,6 @@ export type InlineSuggestion = {
     original_line: string
     issue: string
     suggested_line: string
+    action: "replace" | "remove" | "add"
     confidence: "high" | "medium" | "low"
 }

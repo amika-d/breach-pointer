@@ -49,7 +49,27 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
   const [applied, setApplied] = useState(false);
   const [appliedFixes, setAppliedFixes] = useState<Set<number>>(new Set());
 
+  const gutterRef = React.useRef<HTMLDivElement>(null);
+  const preRef = React.useRef<HTMLPreElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+    }
+  }, [prompt]);
+
+  const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
+    if (gutterRef.current) gutterRef.current.scrollTop = e.currentTarget.scrollTop;
+    if (preRef.current) {
+      preRef.current.scrollTop = e.currentTarget.scrollTop;
+      preRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
   const lines = useMemo(() => prompt.split("\n"), [prompt]);
+  const originalLines = useMemo(() => originalPrompt.split("\n"), [originalPrompt]);
 
   const findings = useMemo(() => {
     return suggestions
@@ -64,6 +84,7 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
         text: s.issue,
         fix: s.suggested_line,
         original: s.original_line,
+        action: s.action,
       }));
   }, [suggestions, appliedFixes]);
 
@@ -78,11 +99,21 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
   function applyFinding(finding: typeof findings[0]) {
     const newLines = [...lines];
     const lineIndex = finding.line - 1;
-    if (newLines[lineIndex] && newLines[lineIndex].trim() === finding.original.trim()) {
-      newLines[lineIndex] = finding.fix;
+    
+    if (finding.action === "remove") {
+      newLines.splice(lineIndex, 1);
+      setPrompt(newLines.join("\n"));
+    } else if (finding.action === "add") {
+      newLines.splice(lineIndex + 1, 0, finding.fix);
       setPrompt(newLines.join("\n"));
     } else {
-      setPrompt((current) => current.replace(finding.original, finding.fix));
+      // replace
+      if (newLines[lineIndex] && newLines[lineIndex].trim() === finding.original.trim()) {
+        newLines[lineIndex] = finding.fix;
+        setPrompt(newLines.join("\n"));
+      } else {
+        setPrompt((current) => current.replace(finding.original, finding.fix));
+      }
     }
     setActiveFinding(finding.id);
     window.setTimeout(() => {
@@ -128,11 +159,11 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
         </div>
       </div>
 
-      {/* Dual Pane */}
-      <div className="grid flex-1 gap-5 lg:grid-cols-[0.72fr_1.28fr]">
+      {/* Triple Pane */}
+      <div className="grid flex-1 gap-5 lg:grid-cols-[1fr_1fr_300px]">
 
         {/* Left: Original Prompt */}
-        <section className="flex min-h-[430px] flex-col rounded-3xl border border-white/15 bg-white/[0.07] p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl sm:p-7">
+        <section className="flex min-h-[560px] flex-col rounded-3xl border border-white/15 bg-white/[0.07] p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl sm:p-7">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="flex size-9 items-center justify-center rounded-xl bg-white/10 text-muted-foreground">
@@ -151,11 +182,29 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
               {copied ? <Check className="size-4 text-emerald-400" /> : <Clipboard className="size-4" />}
             </button>
           </div>
-          <div className="mt-8 flex flex-1 flex-col justify-between gap-8">
-            <p className="max-h-[530px] overflow-auto whitespace-pre-wrap pr-2 text-base leading-8 tracking-[-0.01em] text-white/85 sm:text-lg">
-              {originalPrompt}
-            </p>
-            <div className="border-t border-white/10 pt-5">
+          <div className="mt-6 flex flex-1 flex-col gap-6">
+            <div className="flex min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#080b16]/80 shadow-inner shadow-black/30">
+              {/* Gutter */}
+              <div className="select-none overflow-hidden border-r border-white/10 bg-white/[0.025] py-5 text-right font-mono text-xs leading-7 text-slate-600">
+                {originalLines.map((_, index) => (
+                  <div key={index} className="pr-3">
+                    {index + 1}
+                  </div>
+                ))}
+              </div>
+              {/* Content */}
+              <div className="relative min-w-0 flex-1">
+                <pre className="m-0 overflow-hidden whitespace-pre-wrap break-words p-5 font-mono text-[12px] leading-7">
+                  {originalLines.map((line, index) => (
+                    <div key={`${index}-${line}`}>
+                      {highlightLine(line || " ")}
+                    </div>
+                  ))}
+                </pre>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-5 mt-auto">
               <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
                 <span>Prompt snapshot</span>
                 <span>{originalPrompt.length} characters</span>
@@ -186,8 +235,9 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
           <div className="mt-6 flex min-h-[420px] flex-1 overflow-hidden rounded-2xl border border-white/10 bg-[#080b16]/80 shadow-inner shadow-black/30">
             {/* Gutter */}
             <div
+              ref={gutterRef}
               aria-hidden="true"
-              className="select-none border-r border-white/10 bg-white/[0.025] py-5 text-right font-mono text-xs leading-7 text-slate-600"
+              className="select-none overflow-hidden border-r border-white/10 bg-white/[0.025] py-5 text-right font-mono text-xs leading-7 text-slate-600"
             >
               {lines.map((_, index) => (
                 <div
@@ -204,8 +254,8 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
             </div>
 
             {/* Highlight + Textarea Layer */}
-            <div className="relative min-w-0 flex-1 overflow-auto">
-              <pre aria-hidden="true" className="pointer-events-none absolute inset-0 m-0 whitespace-pre-wrap break-words p-5 font-mono text-[12px] leading-7">
+            <div className="relative min-w-0 flex-1">
+              <pre ref={preRef} aria-hidden="true" className="pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre-wrap break-words p-5 font-mono text-[12px] leading-7">
                 {lines.map((line, index) => (
                   <div
                     key={`${index}-${line}`}
@@ -219,6 +269,12 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
                 ))}
               </pre>
               <textarea
+                ref={textareaRef}
+                onInput={(e) => {
+                  e.currentTarget.style.height = 'auto';
+                  e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                }}
+                onScroll={handleScroll}
                 aria-label="Working prompt code editor"
                 spellCheck={false}
                 value={prompt}
@@ -228,61 +284,11 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
                 }}
                 onClick={(e) => setActiveLine(e.currentTarget.value.slice(0, e.currentTarget.selectionStart).split("\n").length)}
                 onKeyUp={(e) => setActiveLine(e.currentTarget.value.slice(0, e.currentTarget.selectionStart).split("\n").length)}
-                className="relative z-10 block h-full min-h-[420px] w-full resize-none overflow-auto whitespace-pre-wrap break-words bg-transparent p-5 font-mono text-[12px] leading-7 text-transparent caret-cyan-200 outline-none selection:bg-cyan-300/20"
+                className="relative z-10 block min-h-[420px] w-full resize-none overflow-hidden whitespace-pre-wrap break-words bg-transparent p-5 font-mono text-[12px] leading-7 text-transparent caret-cyan-200 outline-none selection:bg-cyan-300/20"
               />
             </div>
 
-            {/* AI Findings Sidebar */}
-            <aside
-              aria-label="AI findings"
-              className="hidden w-64 shrink-0 overflow-auto border-l border-white/10 bg-white/[0.025] p-3 xl:block"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">AI findings</span>
-                {findings.length > 0 && (
-                  <span className="rounded-full bg-rose-300/10 px-2 py-0.5 text-[10px] text-rose-200">
-                    {findings.length} open
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                {findings.length === 0 ? (
-                  <div className="mt-10 text-center text-[11px] text-muted-foreground">No active findings.</div>
-                ) : (
-                  findings.map((finding) => {
-                    const Icon = finding.icon;
-                    return (
-                      <button
-                        key={finding.id}
-                        onClick={() => applyFinding(finding)}
-                        className={`rounded-xl border p-3 text-left transition ${
-                          activeFinding === finding.id
-                            ? "border-emerald-300/50 bg-emerald-300/10"
-                            : "border-rose-300/15 bg-rose-300/[0.04] hover:border-rose-300/40 hover:bg-rose-300/[0.08]"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="flex items-center gap-1.5 text-[11px] font-medium text-rose-100">
-                            <Icon className="size-3" />
-                            {finding.label}
-                          </span>
-                          <span className="font-mono text-[9px] text-muted-foreground">L{finding.line}</span>
-                        </div>
-                        <p className="mt-1 text-[10px] uppercase tracking-wider text-rose-200/70">
-                          {finding.severity} · {finding.category}
-                        </p>
-                        <p className="mt-2 text-[11px] leading-4 text-muted-foreground">
-                          {activeFinding === finding.id ? "Guardrail added to editor." : finding.text}
-                        </p>
-                        <span className="mt-2 inline-flex text-[10px] text-accent">
-                          {activeFinding === finding.id ? "Applied ✓" : "Apply fix →"}
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </aside>
+
           </div>
 
           {/* Bottom Action Bar */}
@@ -300,6 +306,62 @@ export default function PromptEditor({ originalPrompt, suggestions, onPromptChan
               {isRetesting ? <span className="spinner" /> : <ArrowUpRight className="size-4" />}
               {isRetesting ? "Retesting…" : "Apply & Retest"}
             </button>
+          </div>
+        </section>
+
+        {/* Rightmost: AI Findings */}
+        <section className="flex flex-col rounded-3xl border border-white/15 bg-white/[0.05] p-5 shadow-2xl shadow-black/20 backdrop-blur-2xl sm:p-7">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Lightbulb className="size-4 text-accent" />
+                <p className="text-sm font-medium text-white">AI findings</p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Adversarial vulnerabilities.</p>
+            </div>
+            {findings.length > 0 && (
+              <span className="rounded-full bg-rose-300/10 px-2 py-0.5 text-[10px] text-rose-200">
+                {findings.length} open
+              </span>
+            )}
+          </div>
+          
+          <div className="mt-6 flex flex-col gap-3">
+            {findings.length === 0 ? (
+              <div className="mt-10 text-center text-[11px] text-muted-foreground">No active findings.</div>
+            ) : (
+              findings.map((finding) => {
+                const Icon = finding.icon;
+                return (
+                  <button
+                    key={finding.id}
+                    onClick={() => applyFinding(finding)}
+                    className={`rounded-xl border p-4 text-left transition ${
+                      activeFinding === finding.id
+                        ? "border-emerald-300/50 bg-emerald-300/10"
+                        : "border-rose-300/15 bg-rose-300/[0.04] hover:border-rose-300/40 hover:bg-rose-300/[0.08]"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-rose-100">
+                        <Icon className="size-3.5" />
+                        {finding.label}
+                      </span>
+                      <span className="font-mono text-[10px] text-muted-foreground">L{finding.line}</span>
+                    </div>
+                    <p className="mt-1.5 text-[10px] uppercase tracking-wider text-rose-200/70">
+                      {finding.severity} · {finding.category}
+                    </p>
+                    <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                      {activeFinding === finding.id ? "Guardrail added to editor." : finding.text}
+                    </p>
+                    <span className="mt-3 inline-flex text-[11px] font-medium text-accent">
+                      {activeFinding === finding.id ? "Applied ✓" : finding.action === "remove" ? "Remove line →" : finding.action === "add" ? "Add line →" : "Apply fix →"}
+                    </span>
+                  </button>
+                );
+              })
+            )}
           </div>
         </section>
       </div>

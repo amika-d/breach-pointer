@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Geist } from "next/font/google";
 import "./globals.css";
 import { EvalProvider } from "./context/EvalContext";
-import Header from "@/components/Header";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -38,7 +37,6 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-background text-foreground">
         <EvalProvider>
-          <Header />
           {children}
         </EvalProvider>
       </body>

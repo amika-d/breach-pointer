@@ -104,12 +104,21 @@ export default function EvalPage() {
       const score = Math.round((passed / merged.length) * 100);
       const newScoreData = { score, passed, failed, summary: judgeData.overall_summary ?? "", fixes: judgeData.fixes ?? [] };
 
-      // Fire suggestions in background
-      fetch("/api/suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: selectedRole, userPrompt: prompt, failedTests: merged.filter((t) => !t.pass) }),
-      }).then(r => r.json()).then(d => { if (d.suggestions) setSuggestions(d.suggestions); }).catch(console.error);
+      // Fire suggestions in background if there are failures
+      if (failed > 0) {
+        fetch("/api/suggest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            role: selectedRole, 
+            userPrompt: prompt, 
+            failedTests: merged.filter((t) => !t.pass),
+            fixes: judgeData.fixes ?? []
+          }),
+        }).then(r => r.json()).then(d => { if (d.suggestions) setSuggestions(d.suggestions); }).catch(console.error);
+      } else {
+        setSuggestions([]);
+      }
 
       setTimeout(() => {
         setAllTests(merged);
@@ -293,8 +302,8 @@ export default function EvalPage() {
                           ATTACK PROMPT
                         </div>
                         <div className="rounded-xl border border-white/5 bg-black/20 p-4">
-                          <p className="text-sm leading-6 text-white/90">
-                            <span className="bg-blue-600/40 text-blue-100 selection:bg-blue-500/50">{selectedTest.input}</span>
+                          <p className="whitespace-pre-wrap text-sm leading-6 text-white/90">
+                            {selectedTest.input}
                           </p>
                         </div>
                       </div>
@@ -303,8 +312,8 @@ export default function EvalPage() {
                           <div className="mb-2 inline-block bg-blue-600/30 px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-blue-300">
                             MODEL RESPONSE
                           </div>
-                          <p className="text-sm leading-7 text-white/90 px-1">
-                            <span className="bg-blue-600/40 text-blue-100 leading-normal selection:bg-blue-500/50">{selectedTest.response}</span>
+                          <p className="whitespace-pre-wrap px-1 text-sm leading-7 text-white/90">
+                            {selectedTest.response}
                           </p>
                         </div>
                       )}

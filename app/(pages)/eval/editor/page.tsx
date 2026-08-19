@@ -68,12 +68,21 @@ export default function EditorPage() {
       const score = Math.round((passed / merged.length) * 100);
       const newScoreData = { score, passed, failed, summary: judgeData.overall_summary ?? "", fixes: judgeData.fixes ?? [] };
 
-      // Fire fresh suggestions in background
-      fetch("/api/suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: selectedRole, userPrompt: fixedPrompt, failedTests: merged.filter((t) => !t.pass) }),
-      }).then(r => r.json()).then(d => { if (d.suggestions) setSuggestions(d.suggestions); }).catch(console.error);
+      // Fire fresh suggestions in background if there are failures
+      if (failed > 0) {
+        fetch("/api/suggest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            role: selectedRole, 
+            userPrompt: fixedPrompt, 
+            failedTests: merged.filter((t) => !t.pass),
+            fixes: newScoreData.fixes
+          }),
+        }).then(r => r.json()).then(d => { if (d.suggestions) setSuggestions(d.suggestions); }).catch(console.error);
+      } else {
+        setSuggestions([]);
+      }
 
       setAllTests(merged);
       setScoreData(newScoreData);
@@ -88,7 +97,7 @@ export default function EditorPage() {
   if (!isHydrated || !prompt || initialTests.length === 0) return null;
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="relative min-h-screen bg-background text-foreground">
       {/* Background */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,oklch(0.55_0.22_290/.18),transparent_32%),radial-gradient(circle_at_90%_12%,oklch(0.7_0.18_205/.14),transparent_28%),linear-gradient(135deg,oklch(0.16_0.04_285),oklch(0.1_0.025_250)_55%,oklch(0.08_0.03_220))]" />
       <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(oklch(1_0_0/.06)_1px,transparent_1px),linear-gradient(90deg,oklch(1_0_0/.06)_1px,transparent_1px)] [background-size:42px_42px]" />
@@ -103,7 +112,7 @@ export default function EditorPage() {
               <Sparkles className="size-4 text-accent" />
             </div>
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Prompt lab</p>
+              <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Breach Pointer</p>
               <p className="text-sm font-medium tracking-tight text-white">Refine workspace</p>
             </div>
           </div>
@@ -163,7 +172,7 @@ export default function EditorPage() {
         </section>
 
         <footer className="flex items-center justify-between border-t border-white/10 py-5 text-[11px] text-muted-foreground">
-          <span>Prompt Lab / Workspace</span>
+          <span>Breach Pointer / Workspace</span>
           <span className="flex items-center gap-2">
             <Command className="size-3" /> K to open command menu
           </span>

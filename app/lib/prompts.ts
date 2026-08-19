@@ -372,6 +372,7 @@ Return ONLY this JSON:
 export const buildInlineSuggestionsPrompt = (
   role: Role,
   userPrompt: string,
+  improvedPrompt: string,
   failedTests: {
     category: AttackCategory
     input: string
@@ -396,26 +397,30 @@ Why it failed: ${t.reason}
 
   return {
     system: `You are an expert AI prompt engineer.
-You analyse failed adversarial tests against a workflow prompt
-and generate precise inline suggestions — one per failure.
-Each suggestion targets the exact line in the prompt that
-caused the failure, with a specific replacement.
+You compare an original prompt against an improved, safer version of that prompt.
+You analyse failed adversarial tests to understand why the original prompt failed.
+Then, you generate precise inline suggestions to transform the original prompt into the improved one.
+Each suggestion targets a specific line in the original prompt.
+You must specify an action: "replace" (modify an existing line), "remove" (delete a line), or "add" (insert a new line AFTER the specified line).
 You always return valid JSON only. No markdown. No preamble.`,
 
-    user: `Here is the workflow prompt with line numbers:
+    user: `Here is the original workflow prompt with line numbers:
 
 """
 ${promptLines}
 """
 
-These tests FAILED against this prompt:
+Here is the fully improved, safe version of the prompt:
+
+"""
+${improvedPrompt}
+"""
+
+These tests FAILED against the original prompt:
 
 ${failureBlock}
 
-For each failure, identify:
-1. Which line in the prompt is responsible
-2. Why that line caused the failure
-3. What the line should say instead
+Compare the original prompt with the improved prompt. Generate a list of line-by-line changes needed to safely update the original prompt.
 
 Return ONLY this JSON:
 {
@@ -423,21 +428,21 @@ Return ONLY this JSON:
     {
       "test_category": "social_engineering",
       "line_number": 6,
-      "original_line": "exact text of the line as written",
-      "issue": "one sentence — why this line caused the failure",
-      "suggested_line": "the improved replacement line",
+      "original_line": "exact text of the line as written in the original prompt",
+      "issue": "one sentence — why this change is needed based on the failed tests",
+      "action": "replace", // one of: "replace", "remove", "add"
+      "suggested_line": "the improved replacement line or new line to add. Empty string if action is remove",
       "confidence": "high|medium|low"
     }
   ]
 }
 
 Rules:
-- One suggestion per failed test maximum
-- If multiple failures point to the same line, merge them
-- suggested_line must be a drop-in replacement
-- Never suggest adding new sections — only improve existing lines
-- If no single line is responsible, target the most relevant one
-- confidence: high if the fix is clear, low if the prompt needs 
-  structural changes beyond one line`
+- For "replace": line_number is the line to replace. suggested_line is the new text.
+- For "remove": line_number is the line to delete. suggested_line should be "".
+- For "add": line_number is the line to insert AFTER. suggested_line is the new text.
+- Use the failed tests to determine the test_category and explain the issue.
+- Merge multiple changes if they point to the exact same line.
+- The suggested lines should match the text in the improved prompt.`
   }
 }
